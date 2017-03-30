@@ -31,6 +31,8 @@ cdef extern from "numpy/arrayobject.h":
                                 np.npy_intp* strides,
                                 void* data, int flags, object obj)
 
+    object PyArray_SimpleNewFromData(int nd, np.npy_intp* dims, int typenum, void* data)
+
 np.import_array()
 
 cdef dict pixel_fmts = {
@@ -585,6 +587,14 @@ cdef class Image:
             r = fc2SetDefaultColorProcessing(alg)
         raise_error(r)
 
+    def get_time_stamp(self):
+        with nogil:
+            t = fc2GetImageTimeStamp(&self.img)
+        return t
+
+    def get_frame_number(self):
+        return -1
+
     def convert_to(self, fmt, Image dst=None):
         cdef fc2Error r
         cdef fc2PixelFormat _fmt
@@ -630,6 +640,25 @@ cdef class Image:
         stride[0] = self.img.stride
         #assert stride[0] == stride[1]*shape[1]
         #assert shape[0]*shape[1]*stride[1] == self.img.dataSize
+        r = PyArray_NewFromDescr(np.ndarray, dtype,
+                ndim, shape, stride,
+                self.img.pData, np.NPY_DEFAULT, None)
+        r.base = <PyObject *>self
+        Py_INCREF(self)
+        return r
+
+    def get_image_data(self):
+        cdef np.ndarray r
+        cdef np.npy_intp shape[1]
+        cdef np.npy_intp stride[1]
+        cdef np.dtype dtype
+        fmt = self.fmt or self.img.format
+        ndim = 1
+        dtype = np.dtype("uint8")
+        stride[0] = 1
+        shape[0] = self.img.dataSize
+        Py_INCREF(dtype)
+        #r = PyArray_SimpleNewFromData(ndim,shape,dtype,self.img.pData)
         r = PyArray_NewFromDescr(np.ndarray, dtype,
                 ndim, shape, stride,
                 self.img.pData, np.NPY_DEFAULT, None)

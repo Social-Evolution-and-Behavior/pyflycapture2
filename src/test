@@ -1,0 +1,38 @@
+import flycapture2 as fc2
+import numpy as np
+from ffmpy import ffwriter
+
+#print fc2.get_library_version()
+c = fc2.Context()
+#print c.get_num_of_cameras()
+c.connect(*c.get_camera_from_index(0))
+#print c.get_camera_info()
+#print c.get_property_info(fc2.FRAME_RATE)
+
+
+vw=ffwriter('/home/asaf/test.avi',(3008,3000),10,format='yuv422')
+
+c.start_capture()
+im = fc2.Image()
+im = c.retrieve_buffer(im)
+ts = im.get_time_stamp()
+dt = []
+tp  = float(ts['seconds']) + float(ts['microSeconds'])/1000000
+for i in range(6000):
+    if np.mod(i,300)==0:
+        print i
+    im = c.retrieve_buffer(im)
+    ts = im.get_time_stamp()
+    #im1 = im.convert_to(fc2.PIXEL_FORMAT_RGB,im1)
+    a = im.get_image_data()
+    vw.write(a)
+    t = float(ts['seconds']) + float(ts['microSeconds'])/1000000
+    dt = dt + [t - tp]
+    tp = t
+vw.close()
+dt=np.array(dt)
+print np.mean(dt)
+
+
+c.stop_capture()
+c.disconnect()
